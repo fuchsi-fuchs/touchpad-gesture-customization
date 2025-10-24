@@ -1,8 +1,8 @@
 NAME=touchpad-gesture-customization
 DOMAIN=coooolapps.com
 UUID=${NAME}@${DOMAIN}
-BUILDIR=build
-ZIPPATH=${BUILDIR}/${UUID}.zip
+BUILDDIR=build
+ZIPPATH=${BUILDDIR}/${UUID}.zip
 
 .PHONY: pack update
 
@@ -10,11 +10,11 @@ ${SCHEMAS_DIR}/gschemas.compiled: ${SCHEMAS_DIR}/org.gnome.shell.extensions.$(NA
 		
 
 pack:
-	mkdir -p ${BUILDIR}
-	cp -r extension/assets extension/stylesheet.css extension/ui extension/schemas metadata.json $(BUILDIR)
-	glib-compile-schemas --strict ${BUILDIR}/schemas
+	mkdir -p ${BUILDDIR}
+	cp -r extension/assets extension/stylesheet.css extension/ui extension/schemas metadata.json $(BUILDDIR)
+	glib-compile-schemas --strict ${BUILDDIR}/schemas
 	rm -f ${ZIPPATH}
-	(cd ${BUILDIR} && zip -r ${UUID}.zip .)
+	(cd ${BUILDDIR} && zip -r ${UUID}.zip .)
 
 update:
 	gnome-extensions install -f ${ZIPPATH}

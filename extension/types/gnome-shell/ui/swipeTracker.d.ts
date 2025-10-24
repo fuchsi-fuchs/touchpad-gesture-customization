@@ -12,15 +12,22 @@ declare module 'resource:///org/gnome/shell/ui/swipeTracker.js' {
         ): boolean;
     }
 
+    enum SwipeDirection {
+        UP,
+        DOWN,
+        LEFT,
+        RIGHT,
+    }
+
     class SwipeTracker extends GObject.Object {
         constructor(
             actor: Clutter.Actor,
-            orientation: Clutter.Orientation,
+            direction: SwipeDirection,
             allowedModes: Shell.ActionMode,
             params?: _SwipeTrackerOptionalParams
         );
 
-        orientation: Clutter.Orientation;
+        direction: SwipeDirection;
         enabled: boolean;
         allowLongSwipes: boolean;
 

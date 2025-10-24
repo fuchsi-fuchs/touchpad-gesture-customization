@@ -3,6 +3,7 @@ import GObject from 'gi://GObject';
 import Shell from 'gi://Shell';
 import {actionMode} from 'resource:///org/gnome/shell/ui/main.js';
 import {
+    SwipeDirection,
     SwipeTracker,
     CustomEventType,
 } from 'resource:///org/gnome/shell/ui/swipeTracker.js';
@@ -55,11 +56,10 @@ export const TouchpadSwipeGesture = GObject.registerClass(
     class TouchpadSwipeGesture extends GObject.Object {
         private _nfingers: number[];
         private _allowedModes: Shell.ActionMode;
-        orientation: Clutter.Orientation;
+        direction: SwipeDirection;
         private _checkAllowedGesture?: (event: CustomEventType) => boolean;
         private _cumulativeX = 0;
         private _cumulativeY = 0;
-        private _followNaturalScroll: boolean;
         _stageCaptureEvent = 0;
         SWIPE_MULTIPLIER: number;
         TOUCHPAD_BASE_HEIGHT = TouchpadConstants.TOUCHPAD_BASE_HEIGHT;
@@ -67,7 +67,6 @@ export const TouchpadSwipeGesture = GObject.registerClass(
         DRAG_THRESHOLD_DISTANCE = TouchpadConstants.DRAG_THRESHOLD_DISTANCE;
         enabled = true;
         private _state = TouchpadState.NONE;
-        private _toggledDirection = false;
         private _swipeGestureBeginTime = 0;
         private _holdGestureBeginTime = 0;
         private _holdGestureCancelTime = 0;
@@ -75,7 +74,7 @@ export const TouchpadSwipeGesture = GObject.registerClass(
         constructor(
             nfingers: number[],
             allowedModes: Shell.ActionMode,
-            orientation: Clutter.Orientation,
+            direction: SwipeDirection,
             followNaturalScroll = true,
             checkAllowedGesture?: (event: CustomEventType) => boolean,
             gestureSpeed = 1.0
@@ -83,9 +82,8 @@ export const TouchpadSwipeGesture = GObject.registerClass(
             super();
             this._nfingers = nfingers;
             this._allowedModes = allowedModes;
-            this.orientation = orientation;
+            this.direction = direction;
             this._checkAllowedGesture = checkAllowedGesture;
-            this._followNaturalScroll = followNaturalScroll;
 
             this._stageCaptureEvent = global.stage.connect(
                 'captured-event::touchpad',
@@ -99,7 +97,6 @@ export const TouchpadSwipeGesture = GObject.registerClass(
 
         private _resetState() {
             this._state = TouchpadState.NONE;
-            this._toggledDirection = false;
 
             this._swipeGestureBeginTime = 0;
             this._holdGestureBeginTime = 0;
@@ -123,7 +120,6 @@ export const TouchpadSwipeGesture = GObject.registerClass(
             if (gesturePhase === Clutter.TouchpadGesturePhase.BEGIN) {
                 this._swipeGestureBeginTime = event.get_time();
                 this._state = TouchpadState.NONE;
-                this._toggledDirection = false;
             }
 
             if (this._state === TouchpadState.IGNORED)
@@ -192,11 +188,20 @@ export const TouchpadSwipeGesture = GObject.registerClass(
                         Math.abs(cdx) > Math.abs(cdy)
                             ? Clutter.Orientation.HORIZONTAL
                             : Clutter.Orientation.VERTICAL;
+                    
+                    const gestureDirection =
+                        gestureOrientation === Clutter.Orientation.HORIZONTAL
+                            ? cdx > 0
+                                ? SwipeDirection.RIGHT
+                                : SwipeDirection.LEFT
+                            : cdy > 0
+                                ? SwipeDirection.DOWN
+                                : SwipeDirection.UP;
 
                     this._cumulativeX = 0;
                     this._cumulativeY = 0;
 
-                    if (gestureOrientation === this.orientation) {
+                    if (gestureDirection === this.direction) {
                         this._state = TouchpadState.HANDLING;
                         this.emit('begin', time, x, y);
                     } else {
@@ -208,9 +213,14 @@ export const TouchpadSwipeGesture = GObject.registerClass(
                 }
             }
 
-            const vertical = this.orientation === Clutter.Orientation.VERTICAL;
+            const vertical = this.direction === SwipeDirection.UP || this.direction === SwipeDirection.DOWN;
+            const directionMultiplier =
+                this.direction === SwipeDirection.UP || this.direction === SwipeDirection.LEFT
+                    ? -1
+                    : 1;
             let delta =
-                (vertical !== this._toggledDirection ? dy : dx) *
+                (vertical ? dy : dx) *
+                directionMultiplier *
                 this.SWIPE_MULTIPLIER;
             const distance = vertical
                 ? this.TOUCHPAD_BASE_HEIGHT
@@ -219,8 +229,6 @@ export const TouchpadSwipeGesture = GObject.registerClass(
             switch (gesturePhase) {
                 case Clutter.TouchpadGesturePhase.BEGIN:
                 case Clutter.TouchpadGesturePhase.UPDATE:
-                    if (this._followNaturalScroll) delta = -delta;
-
                     this.emit('update', time, delta, distance);
                     break;
 
@@ -262,11 +270,12 @@ export const TouchpadSwipeGesture = GObject.registerClass(
             );
         }
 
-        switchDirectionTo(direction: Clutter.Orientation): void {
-            if (this._state !== TouchpadState.HANDLING) return;
+        // TODO: with directions instead of orientations this is a bit more tricky
+        // switchDirectionTo(direction: Clutter.Orientation): void {
+        //     if (this._state !== TouchpadState.HANDLING) return;
 
-            this._toggledDirection = direction !== this.orientation;
-        }
+        //     this._toggledDirection = direction !== this.orientation;
+        // }
 
         destroy() {
             if (this._stageCaptureEvent) {
@@ -297,7 +306,7 @@ export function createSwipeTracker(
     actor: Clutter.Actor,
     nfingers: number[],
     allowedModes: Shell.ActionMode,
-    orientation: Clutter.Orientation,
+    direction: SwipeDirection,
     followNaturalScroll = true,
     gestureSpeed = 1,
     params?: _SwipeTrackerOptionalParams
@@ -311,7 +320,7 @@ export function createSwipeTracker(
     // create swipeTracker
     const swipeTracker = new SwipeTracker(
         actor,
-        orientation,
+        direction,
         allowedModes,
         params
     );
@@ -332,7 +341,7 @@ export function createSwipeTracker(
     swipeTracker._touchpadGesture = new TouchpadSwipeGesture(
         nfingers,
         swipeTracker._allowedModes,
-        swipeTracker.orientation,
+        swipeTracker.direction,
         followNaturalScroll,
         undefined,
         gestureSpeed

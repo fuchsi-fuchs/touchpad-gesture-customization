@@ -18,7 +18,7 @@ import {
     type AppForwardBackKeyBinds,
 } from './src/forwardBack.js';
 import * as VKeyboard from './src/utils/keyboard.js';
-import {SnapWindowExtension} from './src/snapWidnow.js';
+import {SnapWindowExtension} from './src/windowSnapping.js';
 import {ShowDesktopExtension} from './src/pinchGestures/showDesktop.js';
 import {CloseWindowExtension} from './src/pinchGestures/closeWindow.js';
 import {VolumeControlGestureExtension} from './src/volumeControl.js';

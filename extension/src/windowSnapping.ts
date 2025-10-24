@@ -6,43 +6,34 @@ import St from 'gi://St';
 import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Utils from 'resource:///org/gnome/shell/misc/util.js';
-import {SwipeTracker} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
+import {SwipeTracker, SwipeDirection} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
 import {ExtSettings} from '../constants.js';
 import {createSwipeTracker, TouchpadSwipeGesture} from './swipeTracker.js';
 import {easeActor, easeAdjustment} from './utils/environment.js';
 import {getVirtualKeyboard, IVirtualKeyboard} from './utils/keyboard.js';
 
-const WINDOW_ANIMATION_TIME = 250;
+const WINDOW_ANIMATION_TIME = 200;
 const UPDATED_WINDOW_ANIMATION_TIME = 150;
 const TRIGGER_THRESHOLD = 0.1;
 
-// define enum
-enum GestureMaxUnMaxState {
-    MINIMIZE = -1,
-    UNMAXIMIZE = 0,
-    MAXIMIZE = 1,
-    FULLSCREEN = 2,
+enum WindowSnappingMode {
+    MAXIMIZE,
+    MINIMIZE,
+    REDUCE,
+    ENLARGE,
+    FULLSCREEN,
+    SNAP_LEFT,
+    SNAP_RIGHT
 }
 
-// define enum
-enum GestureTileState {
-    RIGHT_TILE = GestureMaxUnMaxState.MINIMIZE,
-    NORMAL = GestureMaxUnMaxState.UNMAXIMIZE,
-    LEFT_TILE = GestureMaxUnMaxState.MAXIMIZE,
-}
-
-const TilePreview = GObject.registerClass(
-    class TilePreview extends St.Widget {
+const SnapPreview = GObject.registerClass(
+    class SnapPreview extends St.Widget {
         private _adjustment: St.Adjustment;
         private _window?: Meta.Window;
-        private _direction = Clutter.Orientation.VERTICAL;
-        private _normalBox?: Mtk.Rectangle;
-        private _maximizeBox?: Mtk.Rectangle;
-        private _minimizeBox?: Mtk.Rectangle;
-        private _leftSnapBox?: Mtk.Rectangle;
-        private _rightSnapBox?: Mtk.Rectangle;
+        private _startBox?: Mtk.Rectangle;
+        private _endBox?: Mtk.Rectangle;
+        private _mode?: WindowSnappingMode;
         private _virtualDevice: IVirtualKeyboard;
-        private _fullscreenBox?: Mtk.Rectangle;
 
         constructor() {
             super({
@@ -57,7 +48,7 @@ const TilePreview = GObject.registerClass(
                 actor: this,
                 value: 0,
                 lower: -1,
-                upper: 2,
+                upper: 1,
             });
 
             this._adjustment.connect(
@@ -69,32 +60,50 @@ const TilePreview = GObject.registerClass(
 
         open(
             window: Meta.Window,
-            currentProgress: GestureMaxUnMaxState
+            mode: WindowSnappingMode
         ): boolean {
             if (this.visible) {
                 return false;
             }
 
+            this._mode = mode;
             this._window = window;
-            this._fullscreenBox = global.display.get_monitor_geometry(
-                window.get_monitor()
-            );
-            this._maximizeBox = this.getMaximizedBox(window);
-            this._normalBox = this.getNormalBox(window);
-            this._leftSnapBox = this._maximizeBox.copy();
-            this._rightSnapBox = this._maximizeBox.copy();
-            this._minimizeBox = this.getMinimizedBox(
-                this._window,
-                this._maximizeBox
-            );
-
-            this._leftSnapBox.width /= 2;
-            this._rightSnapBox.width /= 2;
-            this._rightSnapBox.x += this._rightSnapBox.width;
-
-            this._direction = Clutter.Orientation.VERTICAL;
+            this._startBox = this.getNormalBox(window);
+            switch (mode) {
+                case WindowSnappingMode.MAXIMIZE:
+                    this._endBox = this.getMaximizedBox(window);
+                    break;
+                case WindowSnappingMode.MINIMIZE:
+                    this._endBox = this.getMinimizedBox(window);
+                    break;
+                case WindowSnappingMode.REDUCE:
+                    this._endBox = this.getReducedBox(window);
+                    break;
+                case WindowSnappingMode.ENLARGE:
+                    if (window.get_maximized() === Meta.MaximizeFlags.BOTH) {
+                        this._endBox = this.getFullscreenBox(window);
+                    } else {
+                        this._endBox = this.getMaximizedBox(window);
+                    }
+                    break;
+                case WindowSnappingMode.FULLSCREEN:
+                    this._endBox = this.getFullscreenBox(window);
+                    break;
+                case WindowSnappingMode.SNAP_LEFT:
+                    this._endBox = this.getMaximizedBox(window);
+                    this._endBox.width /= 2;
+                    break;
+                case WindowSnappingMode.SNAP_RIGHT:
+                    this._endBox = this.getMaximizedBox(window);
+                    this._endBox.width /= 2;
+                    this._endBox.x += this._endBox.width;
+                    break;
+                default:
+                    console.error('Unknown window snapping mode:', mode);
+                    return false;
+            }
             this.opacity = 0;
-            this._adjustment.value = currentProgress;
+            this._adjustment.value = 0;
             this._valueChanged();
             this.visible = true;
             this.easeOpacity(255);
@@ -102,8 +111,7 @@ const TilePreview = GObject.registerClass(
         }
 
         finish(
-            duration: number,
-            state: GestureMaxUnMaxState | GestureTileState
+            duration: number
         ): void {
             const callback = () => {
                 if (!this.visible) return;
@@ -224,12 +232,6 @@ const TilePreview = GObject.registerClass(
             this.set_size(width, height);
         }
 
-        switchToSnapping(value: GestureTileState): void {
-            this._adjustment.remove_transition('value');
-            this._adjustment.value = value;
-            this._direction = Clutter.Orientation.HORIZONTAL;
-        }
-
         easeOpacity(value: number, callback?: () => void) {
             easeActor(this as St.Widget, {
                 opacity: value,
@@ -246,14 +248,15 @@ const TilePreview = GObject.registerClass(
         }
 
         private getMinimizedBox(
-            window: Meta.Window,
-            monitorWorkArea: Mtk.Rectangle
+            window: Meta.Window
         ) {
             const [has_icon, icon_geometry] = window.get_icon_geometry();
             if (has_icon) return icon_geometry;
 
-            const rect = monitorWorkArea.copy();
+            const rect = window.get_frame_rect()
+            rect.x += rect.width / 2;
             rect.width = 0;
+            rect.y += rect.height / 2;
             rect.height = 0;
             return rect;
         }
@@ -286,33 +289,59 @@ const TilePreview = GObject.registerClass(
             maximizedBox.height -= 2 * height;
             return maximizedBox;
         }
+
+        private getReducedBox(window: Meta.Window) {
+            if (window.get_maximized() !== Meta.MaximizeFlags.BOTH) {
+                return this.getMinimizedBox(window);
+            }
+            const normalBox = window.get_frame_rect();
+
+            const [width, height] = [
+                Math.round(normalBox.width * 0.05),
+                Math.round(normalBox.height * 0.05),
+            ];
+
+            normalBox.x += width;
+            normalBox.width -= 2 * width;
+            normalBox.y += height;
+            normalBox.height -= 2 * height;
+            return normalBox;
+        }
+
+        private getFullscreenBox(window: Meta.Window) {
+            return global.display.get_monitor_geometry(
+                window.get_monitor()
+            );
+        }
     }
 );
 
 export class SnapWindowExtension implements ISubExtension {
     private _swipeTracker: typeof SwipeTracker.prototype;
+    private _swipeDirection: SwipeDirection;
     private _connectors: number[] = [];
-    private _tilePreview: typeof TilePreview.prototype;
+    private _tilePreview: typeof SnapPreview.prototype;
     private _touchpadSwipeGesture: typeof TouchpadSwipeGesture.prototype;
     private _toggledDirection = false;
     private _allowChangeDirection = false;
     private _uiGroupAddedActorId: number;
 
-    constructor(nfingerss: number[]) {
+    constructor(nfingerss: number[], swipeDirection: SwipeDirection) {
         this._swipeTracker = createSwipeTracker(
             global.stage,
             nfingerss,
             Shell.ActionMode.NORMAL,
-            Clutter.Orientation.VERTICAL,
+            swipeDirection,
             true,
             1,
             {allowTouch: false}
         );
 
         this._swipeTracker.allowLongSwipes = true;
+        this._swipeDirection = swipeDirection;
         this._touchpadSwipeGesture = this._swipeTracker
             ._touchpadGesture as typeof TouchpadSwipeGesture.prototype;
-        this._tilePreview = new TilePreview();
+        this._tilePreview = new SnapPreview();
         Main.layoutManager.uiGroup.add_child(this._tilePreview);
         this._uiGroupAddedActorId = Main.layoutManager.uiGroup.connect(
             'child-added',
@@ -331,7 +360,7 @@ export class SnapWindowExtension implements ISubExtension {
     }
 
     apply(): void {
-        this._swipeTracker.orientation = Clutter.Orientation.VERTICAL;
+        this._swipeTracker.direction = this._swipeDirection;
         this._connectors.push(
             this._swipeTracker.connect('begin', this._gestureBegin.bind(this))
         );
@@ -384,7 +413,7 @@ export class SnapWindowExtension implements ISubExtension {
               : GestureMaxUnMaxState.UNMAXIMIZE;
 
         this._toggledDirection = false;
-        this._allowChangeDirection = false;
+        this._allowChangeDirection = true;
 
         const snapPoints: number[] = [];
 
@@ -397,7 +426,7 @@ export class SnapWindowExtension implements ISubExtension {
                 );
 
                 // allow tiling gesture, when window is unmaximized and minimized gesture is not enabled
-                this._allowChangeDirection = !ExtSettings.ALLOW_MINIMIZE_WINDOW;
+                this._allowChangeDirection = true; //!ExtSettings.ALLOW_MINIMIZE_WINDOW;
                 break;
             case GestureMaxUnMaxState.MAXIMIZE:
                 snapPoints.push(
@@ -433,6 +462,13 @@ export class SnapWindowExtension implements ISubExtension {
             this._tilePreview.adjustment.value = progress;
             return;
         }
+
+        console.log(
+            'progress',
+            progress,
+            'allowChangeDirection',
+            this._allowChangeDirection
+        );
 
         // if tiling gesture is not allowed or progress is above unmaximized state
         if (
