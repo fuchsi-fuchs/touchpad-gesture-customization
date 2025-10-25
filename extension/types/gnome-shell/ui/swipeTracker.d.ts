@@ -1,78 +1,71 @@
 declare module 'resource:///org/gnome/shell/ui/swipeTracker.js' {
-    import Clutter from 'gi://Clutter';
-    import GObject from 'gi://GObject';
-    import Shell from 'gi://Shell';
+	import Clutter from 'gi://Clutter';
+	import GObject from 'gi://GObject';
+	import Shell from 'gi://Shell';
 
-    class TouchpadGesture extends GObject.Object {
-        destroy(): void;
+	class TouchpadGesture extends GObject.Object {
+		destroy(): void;
 
-        _handleEvent(
-            actor: Clutter.Actor | undefined,
-            event: CustomEventType
-        ): boolean;
-    }
+		_handleEvent(
+			actor: Clutter.Actor | undefined,
+			event: CustomEventType
+		): boolean;
+	}
 
-    enum SwipeDirection {
-        UP,
-        DOWN,
-        LEFT,
-        RIGHT,
-    }
+	class SwipeTracker extends GObject.Object {
+		constructor(
+			actor: Clutter.Actor,
+			orientation: Clutter.Orientation,
+			allowedModes: Shell.ActionMode,
+			params?: _SwipeTrackerOptionalParams
+		);
 
-    class SwipeTracker extends GObject.Object {
-        constructor(
-            actor: Clutter.Actor,
-            direction: SwipeDirection,
-            allowedModes: Shell.ActionMode,
-            params?: _SwipeTrackerOptionalParams
-        );
+		orientation: Clutter.Orientation;
+		enabled: boolean;
+		allowLongSwipes: boolean;
 
-        direction: SwipeDirection;
-        enabled: boolean;
-        allowLongSwipes: boolean;
+		confirmSwipe(
+			distance: number,
+			snapPoints: number[],
+			currentProgress: number,
+			cancelProgress: number
+		): void;
 
-        confirmSwipe(
-            distance: number,
-            snapPoints: number[],
-            currentProgress: number,
-            cancelProgress: number
-        ): void;
+		destroy(): void;
 
-        destroy(): void;
+		_touchGesture?: Clutter.GestureAction;
+		_touchpadGesture?: TouchpadGesture;
+		_oldTouchpadGesture?: TouchpadGesture; // custom
+		_allowedModes: Shell.ActionMode;
+		_progress: number;
 
-        _touchGesture?: Clutter.GestureAction;
-        _touchpadGesture?: TouchpadGesture;
-        _oldTouchpadGesture?: TouchpadGesture; // custom
-        _allowedModes: Shell.ActionMode;
-        _progress: number;
+		_beginGesture(): void;
 
-        _beginGesture(): void;
+		_updateGesture(): void;
 
-        _updateGesture(): void;
+		_endTouchpadGesture(): void;
 
-        _endTouchpadGesture(): void;
+		_history: {
+			reset(): void;
+		};
+	}
 
-        _history: {
-            reset(): void;
-        };
-    }
+	export type _SwipeTrackerOptionalParams = {
+		allowTouch?: boolean;
+		allowDrag?: boolean;
+		allowScroll?: boolean;
+	};
 
-    export type _SwipeTrackerOptionalParams = {
-        allowTouch?: boolean;
-        allowDrag?: boolean;
-        allowScroll?: boolean;
-    };
-
-    // types
-    export type CustomEventType = Pick<
-        Clutter.Event,
-        | 'type'
-        | 'get_gesture_phase'
-        | 'get_touchpad_gesture_finger_count'
-        | 'get_time'
-        | 'get_coords'
-        | 'get_gesture_motion_delta_unaccelerated'
-        | 'get_gesture_pinch_scale'
-        | 'get_gesture_pinch_angle_delta'
-    >;
+	// types
+	export type CustomEventType = Pick<
+		Clutter.Event,
+		| 'type'
+		| 'get_gesture_phase'
+		| 'get_touchpad_gesture_finger_count'
+		| 'get_time'
+		| 'get_coords'
+		| 'get_gesture_motion_delta_unaccelerated'
+		| 'get_gesture_pinch_scale'
+		| 'get_gesture_pinch_angle_delta'
+	>;
 }

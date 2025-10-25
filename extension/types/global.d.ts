@@ -1,18 +1,18 @@
 declare interface IExtension {
-    enable(): void;
-    disable(): void;
+	enable(): void;
+	disable(): void;
 }
 
 declare interface ISubExtension {
-    apply?(): void;
-    destroy(): void;
+	apply?(): void;
+	destroy(): void;
 }
 
 declare type KeysThatStartsWith<
-    K extends string,
-    U extends string,
+	K extends string,
+	U extends string,
 > = K extends `${U}${infer _R}` ? K : never;
 
 declare type KeysOfType<T, U> = {
-    [P in keyof T]: T[P] extends U ? P : never;
+	[P in keyof T]: T[P] extends U ? P : never;
 }[keyof T];
