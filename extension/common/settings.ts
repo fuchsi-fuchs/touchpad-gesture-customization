@@ -47,8 +47,10 @@ export type DoubleSettingsKeys =
 	| 'brightness-control-speed';
 
 export const ActionNames = [
-	'pinch-3-finger-gesture',
-	'pinch-4-finger-gesture',
+	'pinch-3-finger-open',
+	'pinch-3-finger-close',
+	'pinch-4-finger-open',
+	'pinch-4-finger-close',
 	'swipe-3-finger-up',
 	'swipe-3-finger-down',
 	'swipe-3-finger-left',

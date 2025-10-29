@@ -19,30 +19,40 @@
   <schema id="org.gnome.shell.extensions.touchpad-gesture-customization" path="/org/gnome/shell/extensions/touchpad-gesture-customization/">
     <!-- See also: https://docs.gtk.org/glib/gvariant-format-strings.html -->
     <!-- Gestures -->
-    <key name="pinch-3-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+    <key name="pinch-3-finger-open" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
       <default>'NONE'</default>
-      <description>Action for the 3 finger pinch gesture</description>
+      <description>Action for the 3 finger opening pinch gesture</description>
     </key>
-    <key name="pinch-4-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+    <key name="pinch-3-finger-close" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
       <default>'NONE'</default>
-      <description>Action for the 4 finger pinch gesture</description>
+      <description>Action for the 3 finger closing pinch gesture</description>
     </key>
+    <key name="pinch-4-finger-open" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4 finger opening pinch gesture</description>
+    </key>
+    <key name="pinch-4-finger-close" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4 finger closing pinch gesture</description>
+    </key>
+
     <key name="swipe-3-finger-up" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
-      <default>'NONE'</default>
+      <default>'WINDOW_ENLARGE'</default>
       <description>Action for the 3-finger gesture: swipe up</description>
     </key>
     <key name="swipe-3-finger-down" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
-      <default>'NONE'</default>
+      <default>'WINDOW_REDUCE'</default>
       <description>Action for the 3-finger gesture: swipe down</description>
     </key>
     <key name="swipe-3-finger-left" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
-      <default>'NONE'</default>
+      <default>'WINDOW_SNAP_LEFT'</default>
       <description>Action for the 3-finger gesture: swipe left</description>
     </key>
     <key name="swipe-3-finger-right" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
-      <default>'NONE'</default>
+      <default>'WINDOW_SNAP_RIGHT'</default>
       <description>Action for the 3-finger gesture: swipe right</description>
     </key>
+
     <key name="swipe-4-finger-up" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
       <default>'NONE'</default>
       <description>Action for the 4-finger gesture: swipe up</description>
