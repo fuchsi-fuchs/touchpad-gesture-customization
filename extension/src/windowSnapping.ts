@@ -407,6 +407,7 @@ export class SnapWindowExtension implements ISubExtension {
 				break;
 			case WindowSnappingMode.SNAP_LEFT:
 				if (!window.can_maximize()) return;
+				break;
 			case WindowSnappingMode.SNAP_RIGHT:
 				if (!window.can_maximize()) return;
 				break;

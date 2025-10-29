@@ -10,6 +10,7 @@ import {
 	EnumSettingsKeys,
 	GioSettings,
 	IntegerSettingsKeys,
+	ActionNames,
 } from '../common/settings.js';
 import {getAppKeybindingGesturePrefsPage} from './appGestures.js';
 
@@ -154,13 +155,10 @@ function bindPrefsSettings(builder: GtkBuilder, settings: Gio.Settings) {
 
 	bind_boolean_value('allow-minimize-window', settings, builder);
 
-	bind_combo_box('vertical-swipe-3-fingers-gesture', settings, builder);
-	bind_combo_box('horizontal-swipe-3-fingers-gesture', settings, builder);
-	bind_combo_box('vertical-swipe-4-fingers-gesture', settings, builder);
-	bind_combo_box('horizontal-swipe-4-fingers-gesture', settings, builder);
+	for (const action of ActionNames) {
+		bind_combo_box(action, settings, builder);
+	}
 
-	bind_combo_box('pinch-3-finger-gesture', settings, builder);
-	bind_combo_box('pinch-4-finger-gesture', settings, builder);
 	bind_combo_box('overview-navigation-states', settings, builder);
 }
 

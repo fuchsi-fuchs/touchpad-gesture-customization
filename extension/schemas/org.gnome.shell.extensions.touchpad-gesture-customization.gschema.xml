@@ -1,35 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <schemalist>
-  <enum id='org.gnome.shell.extensions.touchpad-gesture-customization.pinch-gestures'>
+  <enum id='org.gnome.shell.extensions.touchpad-gesture-customization.actions'>
     <value value='0' nick='NONE' />
-    <value value='1' nick='SHOW_DESKTOP' />
-    <value value='2' nick='CLOSE_WINDOW' />
-    <value value='3' nick='CLOSE_DOCUMENT' />
+    <value value='1' nick='WINDOW_FULLSCREEN' />
+    <value value='2' nick='WINDOW_MAXIMIZE' />
+    <value value='3' nick='WINDOW_ENLARGE' />
+    <value value='4' nick='WINDOW_REDUCE' />
+    <value value='5' nick='WINDOW_MINIMIZE' />
+    <value value='6' nick='WINDOW_SNAP_LEFT' />
+    <value value='7' nick='WINDOW_SNAP_RIGHT' />
   </enum>
   <enum id='org.gnome.shell.extensions.touchpad-gesture-customization.overview-navigation-states'>
     <value value='0' nick='CYCLIC' />
     <value value='1' nick='GNOME' />
     <value value='2' nick='WINDOW_PICKER_ONLY' />
   </enum>
-  <enum id='org.gnome.shell.extensions.touchpad-gesture-customization.vertical-swipe-gestures'>
-    <value value='0' nick='NONE' />
-    <value value='1' nick='OVERVIEW_NAVIGATION' />
-    <value value='2' nick='WORKSPACE_SWITCHING' />
-    <value value='3' nick='WINDOW_SWITCHING' />
-    <value value='4' nick='VOLUME_CONTROL' />
-    <value value='5' nick='BRIGHTNESS_CONTROL' />
-    <value value='6' nick='WINDOW_MANIPULATION' />
-  </enum>
-  <enum id='org.gnome.shell.extensions.touchpad-gesture-customization.horizontal-swipe-gestures'>
-    <value value='0' nick='NONE' />
-    <value value='1' nick='OVERVIEW_NAVIGATION' />
-    <value value='2' nick='WORKSPACE_SWITCHING' />
-    <value value='3' nick='WINDOW_SWITCHING' />
-    <value value='4' nick='VOLUME_CONTROL' />
-    <value value='5' nick='BRIGHTNESS_CONTROL' />
-  </enum>
+
   <schema id="org.gnome.shell.extensions.touchpad-gesture-customization" path="/org/gnome/shell/extensions/touchpad-gesture-customization/">
     <!-- See also: https://docs.gtk.org/glib/gvariant-format-strings.html -->
+    <!-- Gestures -->
+    <key name="pinch-3-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 3 finger pinch gesture</description>
+    </key>
+    <key name="pinch-4-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4 finger pinch gesture</description>
+    </key>
+    <key name="swipe-3-finger-up" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 3-finger gesture: swipe up</description>
+    </key>
+    <key name="swipe-3-finger-down" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 3-finger gesture: swipe down</description>
+    </key>
+    <key name="swipe-3-finger-left" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 3-finger gesture: swipe left</description>
+    </key>
+    <key name="swipe-3-finger-right" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 3-finger gesture: swipe right</description>
+    </key>
+    <key name="swipe-4-finger-up" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4-finger gesture: swipe up</description>
+    </key>
+    <key name="swipe-4-finger-down" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4-finger gesture: swipe downwards</description>
+    </key>
+    <key name="swipe-4-finger-left" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4-finger gesture: swipe left</description>
+    </key>
+    <key name="swipe-4-finger-right" enum="org.gnome.shell.extensions.touchpad-gesture-customization.actions">
+      <default>'NONE'</default>
+      <description>Action for the 4-finger gesture: swipe right</description>
+    </key>
+    
+    <!-- Settings -->
     <key name="touchpad-speed-scale" type="d">
       <default>1.0</default>
     </key>
@@ -75,30 +106,6 @@
     <key name='enable-vertical-app-gesture' type='b'>
       <default>false</default>
       <description>Enable vertical swipe for app gesture</description>
-    </key>
-    <key name="pinch-3-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.pinch-gestures">
-      <default>'CLOSE_DOCUMENT'</default>
-      <description>Gesture for 3 finger pinch</description>
-    </key>
-    <key name="pinch-4-finger-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.pinch-gestures">
-      <default>'CLOSE_WINDOW'</default>
-      <description>Gesture for 4 finger pinch</description>
-    </key>
-    <key name="vertical-swipe-3-fingers-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.vertical-swipe-gestures">
-      <default>'OVERVIEW_NAVIGATION'</default>
-      <description>Gesture action for 3-fingers vertical swipe</description>
-    </key>
-    <key name="horizontal-swipe-3-fingers-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.horizontal-swipe-gestures">
-      <default>'WINDOW_SWITCHING'</default>
-      <description>Gesture action for 3-fingers horizontal swipe</description>
-    </key>
-    <key name="vertical-swipe-4-fingers-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.vertical-swipe-gestures">
-      <default>'WINDOW_MANIPULATION'</default>
-      <description>Gesture action for 4-fingers vertical swipe</description>
-    </key>
-    <key name="horizontal-swipe-4-fingers-gesture" enum="org.gnome.shell.extensions.touchpad-gesture-customization.horizontal-swipe-gestures">
-      <default>'WORKSPACE_SWITCHING'</default>
-      <description>Gesture action for 4-fingers horizontal swipe</description>
     </key>
     <key name="overview-navigation-states" enum="org.gnome.shell.extensions.touchpad-gesture-customization.overview-navigation-states">
       <default>'WINDOW_PICKER_ONLY'</default>

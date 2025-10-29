@@ -1,21 +1,17 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 
-export enum PinchGestureType {
+// NOTE: this definition is duplicated in the schema and in the ui/gestures.ui file.
+// TODO: how the fuck can we change this to have a single source of truth?
+export enum ActionType {
 	NONE = 0,
-	SHOW_DESKTOP = 1,
-	CLOSE_WINDOW = 2,
-	CLOSE_DOCUMENT = 3,
-}
-
-export enum SwipeGestureType {
-	NONE = 0,
-	OVERVIEW_NAVIGATION = 1,
-	WORKSPACE_SWITCHING = 2,
-	WINDOW_SWITCHING = 3,
-	VOLUME_CONTROL = 4,
-	BRIGHTNESS_CONTROL = 5,
-	WINDOW_MANIPULATION = 6,
+	WINDOW_FULLSCREEN = 1,
+	WINDOW_MAXIMIZE = 2,
+	WINDOW_ENLARGE = 3,
+	WINDOW_REDUCE = 4,
+	WINDOW_MINIMIZE = 5,
+	WINDOW_SNAP_LEFT = 6,
+	WINDOW_SNAP_RIGHT = 7,
 }
 
 export enum OverviewNavigationState {
@@ -50,14 +46,22 @@ export type DoubleSettingsKeys =
 	| 'volume-control-speed'
 	| 'brightness-control-speed';
 
-export type EnumSettingsKeys =
-	| 'vertical-swipe-3-fingers-gesture'
-	| 'horizontal-swipe-3-fingers-gesture'
-	| 'vertical-swipe-4-fingers-gesture'
-	| 'horizontal-swipe-4-fingers-gesture'
-	| 'pinch-3-finger-gesture'
-	| 'pinch-4-finger-gesture'
-	| 'overview-navigation-states';
+export const ActionNames = [
+	'pinch-3-finger-gesture',
+	'pinch-4-finger-gesture',
+	'swipe-3-finger-up',
+	'swipe-3-finger-down',
+	'swipe-3-finger-left',
+	'swipe-3-finger-right',
+	'swipe-4-finger-up',
+	'swipe-4-finger-down',
+	'swipe-4-finger-left',
+	'swipe-4-finger-right',
+] as const;
+
+export type ActionKeys = (typeof ActionNames)[number];
+
+export type EnumSettingsKeys = ActionKeys | 'overview-navigation-states';
 
 export type MiscSettingsKeys = 'forward-back-application-keyboard-shortcuts';
 
@@ -83,17 +87,7 @@ type Enum_Functions<K extends EnumSettingsKeys, T> = {
 	set_enum(key: K, value: T): void;
 };
 
-type SettingsEnumFunctions = Enum_Functions<
-	| 'vertical-swipe-3-fingers-gesture'
-	| 'horizontal-swipe-3-fingers-gesture'
-	| 'vertical-swipe-4-fingers-gesture'
-	| 'horizontal-swipe-4-fingers-gesture',
-	SwipeGestureType
-> &
-	Enum_Functions<
-		'pinch-3-finger-gesture' | 'pinch-4-finger-gesture',
-		PinchGestureType
-	> &
+type SettingsEnumFunctions = Enum_Functions<ActionKeys, ActionType> &
 	Enum_Functions<'overview-navigation-states', OverviewNavigationState>;
 
 type Misc_Functions<K extends MiscSettingsKeys, T extends string> = {
