@@ -6,7 +6,7 @@ import {
 	SwipeTracker,
 	CustomEventType,
 } from 'resource:///org/gnome/shell/ui/swipeTracker.js';
-import {TouchpadConstants} from '../constants.js';
+import {TouchpadConstants} from '../../constants.js';
 
 enum TouchpadState {
 	NONE = 0,

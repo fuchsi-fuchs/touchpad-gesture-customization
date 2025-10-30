@@ -67,7 +67,6 @@ function bind_combo_box(
 	builder: GtkBuilder
 ) {
 	const comboRow = builder.get_object<Adw.ComboRow>(key);
-	if (comboRow === null) return; // TODO: remove this in 1.0
 	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	const enum_key = key as any;
 	comboRow.set_selected(settings.get_enum(enum_key));

@@ -18,10 +18,15 @@ const DECELERATION_TOUCHPAD = 0.997;
 const VELOCITY_CURVE_THRESHOLD = 2;
 const DECELERATION_PARABOLA_MULTIPLIER = 0.35;
 
-declare type HisotyEvent = {time: number; delta: number};
+declare type HistoryEvent = {time: number; delta: number};
+
+export enum PinchDirection {
+	OPEN,
+	CLOSE,
+}
 
 class EventHistoryTracker {
-	private _data: HisotyEvent[] = [];
+	private _data: HistoryEvent[] = [];
 
 	reset() {
 		this._data = [];
@@ -80,6 +85,7 @@ export const TouchpadPinchGesture = GObject.registerClass(
 	},
 	class TouchpadPinchGesture extends GObject.Object {
 		private _nfingers: number[];
+		private _direction: PinchDirection;
 		private _allowedModes: Shell.ActionMode;
 		private _state = TouchpadState.NONE;
 		private _ackState = GestureACKState.NONE;
@@ -94,12 +100,14 @@ export const TouchpadPinchGesture = GObject.registerClass(
 
 		constructor(params: {
 			nfingers: number[];
+			direction: PinchDirection;
 			allowedModes: Shell.ActionMode;
 			checkAllowedGesture?: (event: CustomEventType) => boolean;
 			pinchSpeed?: number;
 		}) {
 			super();
 			this._nfingers = params.nfingers;
+			this._direction = params.direction;
 			this._allowedModes = params.allowedModes;
 			this._checkAllowedGesture = params.checkAllowedGesture;
 			this._stageCaptureEvent = global.stage.connect(
@@ -240,8 +248,12 @@ export const TouchpadPinchGesture = GObject.registerClass(
 
 			// this._historyTracker.append(time, delta);
 			// delta /= this._pinchDistance;
+			const directionMultiplier =
+				this._direction === PinchDirection.OPEN ? 1 : -1;
 			const new_progress =
-				Math.log2(pinch_scale) * this.PINCH_MULTIPLIER +
+				Math.log2(pinch_scale) *
+					this.PINCH_MULTIPLIER *
+					directionMultiplier +
 				this._initialProgress;
 			const delta = new_progress - this._progress_scale;
 			this._historyTracker.append(time, delta);

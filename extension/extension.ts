@@ -7,12 +7,13 @@ import {
 import {AllSettingsKeys, ActionType} from './common/settings.js';
 import * as Constants from './constants.js';
 import * as VKeyboard from './src/utils/keyboard.js';
+import {SwipeGesture, PinchGesture} from './src/gestures/gestures.js';
 import {
 	WindowSnappingMode,
 	WindowManipulationAction,
-	SwipeGesture,
-} from './src/windowSnapping.js';
-import {SwipeDirection} from './src/swipeTracker.js';
+} from './src/actions/windowSnapping.js';
+import {SwipeDirection} from './src/gestures/swipeTracker.js';
+import {PinchDirection} from './src/gestures/pinchTracker.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export default class TouchpadGestureCustomization extends Extension {
@@ -107,7 +108,7 @@ export default class TouchpadGestureCustomization extends Extension {
 		}
 	}
 
-	_createGesture(
+	_createSwipeGesture(
 		_propertyName: string,
 		_nfingers: number,
 		_direction: SwipeDirection
@@ -121,6 +122,24 @@ export default class TouchpadGestureCustomization extends Extension {
 			const action = this._createAction(act);
 			if (!action) return;
 			const gesture = new SwipeGesture([_nfingers], _direction, action);
+			this._extensions.push(gesture);
+		}
+	}
+
+	_createPinchGesture(
+		_propertyName: string,
+		_nfingers: number,
+		_direction: PinchDirection
+	) {
+		const act: ActionType = this.settings!.get_enum(_propertyName);
+
+		if (act != ActionType.NONE) {
+			console.debug(
+				`ATG: Creating action ${ActionType[act]} for ${_nfingers}-finger pinch ${PinchDirection[_direction]} gesture`
+			);
+			const action = this._createAction(act);
+			if (!action) return;
+			const gesture = new PinchGesture([_nfingers], _direction, action);
 			this._extensions.push(gesture);
 		}
 	}
@@ -142,15 +161,23 @@ export default class TouchpadGestureCustomization extends Extension {
 			Main.wm._workspaceAnimation._swipeTracker.enabled = false;
 		}
 
-		this._createGesture('swipe-3-finger-up', 3, SwipeDirection.UP);
-		this._createGesture('swipe-3-finger-down', 3, SwipeDirection.DOWN);
-		this._createGesture('swipe-3-finger-left', 3, SwipeDirection.LEFT);
-		this._createGesture('swipe-3-finger-right', 3, SwipeDirection.RIGHT);
+		this._createSwipeGesture('swipe-3-finger-up', 3, SwipeDirection.UP);
+		this._createSwipeGesture('swipe-3-finger-down', 3, SwipeDirection.DOWN);
+		this._createSwipeGesture('swipe-3-finger-left', 3, SwipeDirection.LEFT);
+		this._createSwipeGesture(
+			'swipe-3-finger-right',
+			3,
+			SwipeDirection.RIGHT
+		);
 
-		this._createGesture('swipe-4-finger-up', 4, SwipeDirection.UP);
-		this._createGesture('swipe-4-finger-down', 4, SwipeDirection.DOWN);
-		this._createGesture('swipe-4-finger-left', 4, SwipeDirection.LEFT);
-		this._createGesture('swipe-4-finger-right', 4, SwipeDirection.RIGHT);
+		this._createSwipeGesture('swipe-4-finger-up', 4, SwipeDirection.UP);
+		this._createSwipeGesture('swipe-4-finger-down', 4, SwipeDirection.DOWN);
+		this._createSwipeGesture('swipe-4-finger-left', 4, SwipeDirection.LEFT);
+		this._createSwipeGesture(
+			'swipe-4-finger-right',
+			4,
+			SwipeDirection.RIGHT
+		);
 
 		this._extensions.forEach(extension => extension.apply?.());
 

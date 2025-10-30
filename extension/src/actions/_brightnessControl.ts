@@ -1,47 +1,46 @@
 import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import Gio from 'gi://Gio';
-import Gvc from 'gi://Gvc';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import * as Volume from 'resource:///org/gnome/shell/ui/status/volume.js';
+import {loadInterfaceXML} from 'resource:///org/gnome/shell/misc/fileUtils.js';
 import {SwipeTracker} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
-import {createSwipeTracker, SwipeDirection} from './swipeTracker.js';
-import {ExtSettings, TouchpadConstants} from '../constants.js';
+import {createSwipeTracker, SwipeDirection} from '../gestures/swipeTracker.js';
+import {ExtSettings, TouchpadConstants} from '../../constants.js';
 
-const VolumeIcons = [
-	'audio-volume-muted-symbolic',
-	'audio-volume-low-symbolic',
-	'audio-volume-medium-symbolic',
-	'audio-volume-high-symbolic',
-];
+const BrightnessProxy = Gio.DBusProxy.makeProxyWrapper(
+	loadInterfaceXML('org.gnome.SettingsDaemon.Power.Screen')
+) as unknown as new (
+	connection: Gio.DBusConnection,
+	name: string | null,
+	objectPath: string,
+	callback?: (proxy: Gio.DBusProxy, error: Error | null) => void
+) => Gio.DBusProxy;
 
-export class VolumeControlGestureExtension implements ISubExtension {
+export class BrightnessControlGestureExtension implements ISubExtension {
 	private _verticalSwipeTracker?: SwipeTracker;
 	private _horizontalSwipeTracker?: SwipeTracker;
 	private _verticalConnectHandlers?: number[];
 	private _horizontalConnectHandlers?: number[];
-	private _controller?: Gvc.MixerControl;
-	private _sink?: Gvc.MixerStream;
-	private _maxVolume!: number;
-	private _sinkChangeBinding!: number;
+	private _brightnessProxy?: Gio.DBusProxy;
 	private _lastOsdShowTimestamp: number = 0;
 
 	apply() {
-		this._controller = Volume.getMixerControl();
-
-		this._maxVolume = this._controller.get_vol_max_norm();
-
-		this._sink = this._controller.get_default_sink();
-		this._sinkChangeBinding = this._controller.connect(
-			'default-sink-changed',
-			this._handleSinkChange.bind(this)
+		this._brightnessProxy = new BrightnessProxy(
+			Gio.DBus.session,
+			'org.gnome.SettingsDaemon.Power',
+			'/org/gnome/SettingsDaemon/Power',
+			(proxy, error) => {
+				if (error)
+					console.error(
+						`Failed to connect to the ${proxy.g_interface_name} D-Bus interface`,
+						error
+					);
+			}
 		);
 	}
 
 	destroy(): void {
-		this._controller?.disconnect(this._sinkChangeBinding);
-		delete this._controller;
-		delete this._sink;
+		delete this._brightnessProxy;
 
 		this._verticalConnectHandlers?.forEach(handle =>
 			this._verticalSwipeTracker?.disconnect(handle)
@@ -61,9 +60,9 @@ export class VolumeControlGestureExtension implements ISubExtension {
 			global.stage,
 			nfingers,
 			Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-			SwipeDirection.RIGHT,
-			!ExtSettings.INVERT_VOLUME_DIRECTION,
-			TouchpadConstants.VOLUME_CONTROL_MULTIPLIER,
+			SwipeDirection.UP, // TODO
+			!ExtSettings.INVERT_BRIGHTNESS_DIRECTION,
+			TouchpadConstants.BRIGHTNESS_CONTROL_MULTIPLIER * 100,
 			{allowTouch: false}
 		);
 
@@ -88,9 +87,9 @@ export class VolumeControlGestureExtension implements ISubExtension {
 			global.stage,
 			nfingers,
 			Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-			SwipeDirection.RIGHT,
-			!ExtSettings.INVERT_VOLUME_DIRECTION,
-			TouchpadConstants.VOLUME_CONTROL_MULTIPLIER,
+			SwipeDirection.UP, // TODO
+			!ExtSettings.INVERT_BRIGHTNESS_DIRECTION,
+			TouchpadConstants.BRIGHTNESS_CONTROL_MULTIPLIER * 100,
 			{allowTouch: false}
 		);
 
@@ -110,11 +109,22 @@ export class VolumeControlGestureExtension implements ISubExtension {
 		];
 	}
 
-	_handleSinkChange(controller: Gvc.MixerControl, id: number) {
-		this._sink = controller.lookup_stream_id(id);
+	get _brightness() {
+		return this._brightnessProxy?.Brightness ?? 0;
 	}
 
-	_showOsd(volume: number) {
+	set _brightness(value: number) {
+		if (
+			this._brightnessProxy === undefined ||
+			this._brightnessProxy.Brightness === null
+		) {
+			return;
+		}
+
+		this._brightnessProxy.Brightness = value;
+	}
+
+	_showOsd(brightness: number) {
 		// If osd is updated too frequently, it may lag or freeze, so cap it to 30 fps
 		const nowTimestamp = new Date().getTime();
 
@@ -124,45 +134,28 @@ export class VolumeControlGestureExtension implements ISubExtension {
 
 		this._lastOsdShowTimestamp = nowTimestamp;
 
-		const percentage = volume / this._maxVolume;
-		const iconIndex =
-			volume === 0 ? 0 : Math.clamp(Math.floor(3 * percentage + 1), 1, 3);
+		const percentage = brightness / 100;
 
 		const monitor = -1; // Display volume window on all monitors
-		const icon = Gio.Icon.new_for_string(VolumeIcons[iconIndex]);
-		const label = this._sink?.get_port().human_port ?? '';
+		const icon = Gio.Icon.new_for_string('display-brightness-symbolic');
 
-		Main.osdWindowManager.show(monitor, icon, label, percentage);
+		Main.osdWindowManager.show(monitor, icon, null, percentage);
 	}
 
 	_gestureBegin(_tracker: SwipeTracker): void {
-		if (this._sink === undefined) {
-			return;
-		}
-
 		_tracker.confirmSwipe(
 			global.screen_height,
-			[0, 1], // no snapping is needed as volume change is continuous, but this will automatically clamp progress to [0, 1]
-			this._sink.volume / this._maxVolume, // current normalized volume
+			[0, 100], // no snapping is needed as brightness change is continuous, but this will automatically clamp progress to [0, 100]
+			this._brightness, // current brightness
 			0 // can be whatever
 		);
 	}
 
 	_gestureUpdate(_tracker: SwipeTracker, progress: number): void {
-		if (this._sink === undefined) {
-			return;
-		}
-
-		const volume = progress * this._maxVolume;
-
-		if (volume > 0) {
-			this._sink.change_is_muted(false);
-		}
-
-		this._sink.volume = volume;
-		this._sink.push_volume();
-
-		this._showOsd(volume);
+		// Round instead of truncating so that brightness changes sync exactly with extensions like "OSD Volume Number"
+		const brightness = Math.round(progress);
+		this._brightness = brightness;
+		this._showOsd(brightness);
 	}
 
 	_gestureEnd(

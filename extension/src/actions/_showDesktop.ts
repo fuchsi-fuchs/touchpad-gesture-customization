@@ -4,7 +4,10 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {lerp} from 'resource:///org/gnome/shell/misc/util.js';
-import {TouchpadPinchGesture} from './pinchTracker.js';
+import {
+	TouchpadPinchGesture,
+	PinchDirection,
+} from '../gestures/pinchTracker.js';
 import {easeActor} from '../utils/environment.js';
 import {
 	MonitorConstraint,
@@ -278,6 +281,7 @@ export class ShowDesktopExtension implements ISubExtension {
 	constructor(nfingers: number[]) {
 		this._pinchTracker = new TouchpadPinchGesture({
 			nfingers: nfingers,
+			direction: PinchDirection.OPEN,
 			allowedModes: Shell.ActionMode.NORMAL,
 		});
 	}
@@ -418,7 +422,7 @@ export class ShowDesktopExtension implements ISubExtension {
 				actor.opacity = 0;
 				easeActor(actor, {
 					opacity: 255,
-					duration: 500,
+					duration: 500, // TODO setting
 					mode: Clutter.AnimationMode.EASE_OUT_QUAD,
 					onStopped,
 				});

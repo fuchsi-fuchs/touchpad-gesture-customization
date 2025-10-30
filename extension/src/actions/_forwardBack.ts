@@ -3,11 +3,10 @@ import Shell from 'gi://Shell';
 import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import {SwipeTracker} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
-import {ExtSettings} from '../constants.js';
-import {ArrowIconAnimation} from './animations/arrow.js';
-import {createSwipeTracker, SwipeDirection} from './swipeTracker.js';
-import {getVirtualKeyboard, IVirtualKeyboard} from './utils/keyboard.js';
-import {ForwardBackKeyBinds} from '../common/settings.js';
+import {ArrowIconAnimation} from '../animations/arrow.js';
+import {createSwipeTracker, SwipeDirection} from '../gestures/swipeTracker.js';
+import {getVirtualKeyboard, IVirtualKeyboard} from '../utils/keyboard.js';
+import {ForwardBackKeyBinds} from '../../common/settings.js';
 
 enum AnimationState {
 	WAITING = 0, // waiting to cross threshold

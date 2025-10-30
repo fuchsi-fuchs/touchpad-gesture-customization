@@ -6,9 +6,9 @@ import {
 	OverviewAdjustment,
 } from 'resource:///org/gnome/shell/ui/overviewControls.js';
 import {SwipeTracker} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
-import {createSwipeTracker, SwipeDirection} from './swipeTracker.js';
-import {OverviewNavigationState} from '../common/settings.js';
-import {ExtSettings, OverviewControlsState} from '../constants.js';
+import {createSwipeTracker, SwipeDirection} from '../gestures/swipeTracker.js';
+import {OverviewNavigationState} from '../../common/settings.js';
+import {ExtSettings, OverviewControlsState} from '../../constants.js';
 
 enum ExtensionState {
 	// DISABLED = 0,

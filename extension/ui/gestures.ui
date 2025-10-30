@@ -50,7 +50,7 @@
                     </object>
                 </child>
 
-                <!-- <child>
+                <child>
                     <object class="AdwComboRow" id="pinch-3-finger-open">
                         <property name="title" translatable="yes">3-finger opening pinch</property>
                         <property name="model">action_model</property>
@@ -61,7 +61,7 @@
                         <property name="title" translatable="yes">3-finger closing pinch</property>
                         <property name="model">action_model</property>
                     </object>
-                </child> -->
+                </child>
             </object>
         </child>
 
@@ -95,7 +95,7 @@
                     </object>
                 </child>
 
-                <!-- <child>
+                <child>
                     <object class="AdwComboRow" id="pinch-4-finger-open">
                         <property name="title" translatable="yes">4-finger opening pinch</property>
                         <property name="model">action_model</property>
@@ -106,7 +106,7 @@
                         <property name="title" translatable="yes">4-finger closing pinch</property>
                         <property name="model">action_model</property>
                     </object>
-                </child> -->
+                </child>
             </object>
         </child>
     </object>

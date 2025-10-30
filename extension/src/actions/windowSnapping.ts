@@ -1,24 +1,16 @@
 import Clutter from 'gi://Clutter';
 import Meta from 'gi://Meta';
-import Shell from 'gi://Shell';
 import Mtk from 'gi://Mtk';
 import St from 'gi://St';
 import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Utils from 'resource:///org/gnome/shell/misc/util.js';
-import {SwipeTracker} from 'resource:///org/gnome/shell/ui/swipeTracker.js';
-import {ExtSettings} from '../constants.js';
-import {
-	createSwipeTracker,
-	TouchpadSwipeGesture,
-	SwipeDirection,
-} from './swipeTracker.js';
-import {easeActor, easeAdjustment} from './utils/environment.js';
-import {getVirtualKeyboard, IVirtualKeyboard} from './utils/keyboard.js';
+import {IGestureAction} from './gestureAction.js';
+import {easeActor, easeAdjustment} from '../utils/environment.js';
+import {getVirtualKeyboard, IVirtualKeyboard} from '../utils/keyboard.js';
 
 const WINDOW_ANIMATION_TIME = 200;
 const UPDATED_WINDOW_ANIMATION_TIME = 150;
-const TRIGGER_THRESHOLD = 0.1;
 
 export enum WindowSnappingMode {
 	MAXIMIZE,
@@ -28,41 +20,6 @@ export enum WindowSnappingMode {
 	FULLSCREEN,
 	SNAP_LEFT,
 	SNAP_RIGHT,
-}
-
-export interface IGestureAction extends St.Widget {
-	/**
-	 * @brief check if this action is currently valid and available
-	 * @note all other functions are only called if this returned true before prepare was called
-	 */
-	isAvailable(): boolean;
-
-	/**
-	 * @brief prepare preview and variables (eg. current focused window or workspace)
-	 * @note is always called before preview or finish
-	 * @param progress range 0.0 - 1.0
-	 */
-	prepare(progress: number): void;
-
-	/**
-	 * @brief preview action
-	 * @note always preceded by prepare(1.0)
-	 * @param progress range -1.0 - 1.0
-	 */
-	preview(progress: number): void;
-
-	/**
-	 * @brief perform action with given final progress
-	 * @note always preceded by preview(...)
-	 * @param finalProgress (raw) progress at the end of gesture
-	 */
-	finish(finalProgress: number): void;
-
-	/**
-	 * @brief cancel preview and action
-	 * @note might be called after prepare instead of preview
-	 */
-	cancel(): void;
 }
 
 export const WindowManipulationAction = GObject.registerClass(
@@ -405,96 +362,3 @@ export const WindowManipulationAction = GObject.registerClass(
 		}
 	}
 );
-
-export class SwipeGesture implements ISubExtension {
-	private _swipeTracker: typeof SwipeTracker.prototype;
-	private _connectors: number[] = [];
-	private _action: IGestureAction;
-	private _uiGroupAddedActorId: number;
-
-	constructor(
-		nfingerss: number[],
-		swipeDirection: SwipeDirection,
-		action: IGestureAction
-	) {
-		this._swipeTracker = createSwipeTracker(
-			global.stage,
-			nfingerss,
-			Shell.ActionMode.NORMAL,
-			swipeDirection,
-			true,
-			1,
-			{allowTouch: true} // TODO: setting
-		);
-
-		this._swipeTracker.allowLongSwipes = true;
-		this._action = action;
-
-		Main.layoutManager.uiGroup.add_child(this._action);
-		this._uiGroupAddedActorId = Main.layoutManager.uiGroup.connect(
-			'child-added',
-			() => {
-				Main.layoutManager.uiGroup.set_child_above_sibling(
-					this._action,
-					null
-				);
-			}
-		);
-
-		Main.layoutManager.uiGroup.set_child_above_sibling(this._action, null);
-	}
-
-	apply(): void {
-		this._connectors.push(
-			this._swipeTracker.connect('begin', this._gestureBegin.bind(this))
-		);
-		this._connectors.push(
-			this._swipeTracker.connect('update', this._gestureUpdate.bind(this))
-		);
-		this._connectors.push(
-			this._swipeTracker.connect('end', this._gestureEnd.bind(this))
-		);
-	}
-
-	destroy(): void {
-		if (this._uiGroupAddedActorId) {
-			Main.layoutManager.uiGroup.disconnect(this._uiGroupAddedActorId);
-			this._uiGroupAddedActorId = 0;
-		}
-
-		this._connectors.forEach(connector =>
-			this._swipeTracker.disconnect(connector)
-		);
-		Main.layoutManager.uiGroup.remove_child(this._action);
-		this._swipeTracker.destroy();
-		this._action.destroy();
-	}
-
-	_gestureBegin(
-		tracker: typeof SwipeTracker.prototype,
-		monitor: number
-	): void {
-		if (!this._action.isAvailable()) return;
-
-		const window = global.display.get_focus_window() as Meta.Window | null;
-
-		// window is on different monitor
-		if (!window || window.get_monitor() !== monitor) {
-			return;
-		}
-
-		const currentMonitor = window.get_monitor();
-		const monitorArea = global.display.get_monitor_geometry(currentMonitor);
-
-		this._action.prepare(1.0);
-		tracker.confirmSwipe(monitorArea.height, [-1, 0, 1], 0, 0);
-	}
-
-	_gestureUpdate(_tracker: never, progress: number): void {
-		this._action.preview(progress);
-	}
-
-	_gestureEnd(_tracker: never, duration: number, progress: number): void {
-		this._action.finish(progress);
-	}
-}
