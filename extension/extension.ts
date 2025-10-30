@@ -7,7 +7,11 @@ import {
 import {AllSettingsKeys, ActionType} from './common/settings.js';
 import * as Constants from './constants.js';
 import * as VKeyboard from './src/utils/keyboard.js';
-import {SnapWindowExtension, WindowSnappingMode} from './src/windowSnapping.js';
+import {
+	WindowSnappingMode,
+	WindowManipulationAction,
+	SwipeGesture,
+} from './src/windowSnapping.js';
 import {SwipeDirection} from './src/swipeTracker.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -69,52 +73,30 @@ export default class TouchpadGestureCustomization extends Extension {
 		);
 	}
 
-	_createAction(
-		_action: ActionType,
-		_nfingers: number,
-		_direction: SwipeDirection
-	) {
+	_createAction(_action: ActionType) {
 		switch (_action) {
 			case ActionType.WINDOW_FULLSCREEN:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
+				return new WindowManipulationAction(
 					WindowSnappingMode.FULLSCREEN
 				);
 			case ActionType.WINDOW_MAXIMIZE:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
+				return new WindowManipulationAction(
 					WindowSnappingMode.MAXIMIZE
 				);
 			case ActionType.WINDOW_ENLARGE:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
-					WindowSnappingMode.ENLARGE
-				);
+				return new WindowManipulationAction(WindowSnappingMode.ENLARGE);
 			case ActionType.WINDOW_REDUCE:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
-					WindowSnappingMode.REDUCE
-				);
+				return new WindowManipulationAction(WindowSnappingMode.REDUCE);
 			case ActionType.WINDOW_MINIMIZE:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
+				return new WindowManipulationAction(
 					WindowSnappingMode.MINIMIZE
 				);
 			case ActionType.WINDOW_SNAP_LEFT:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
+				return new WindowManipulationAction(
 					WindowSnappingMode.SNAP_LEFT
 				);
 			case ActionType.WINDOW_SNAP_RIGHT:
-				return new SnapWindowExtension(
-					[_nfingers],
-					_direction,
+				return new WindowManipulationAction(
 					WindowSnappingMode.SNAP_RIGHT
 				);
 			default:
@@ -133,9 +115,13 @@ export default class TouchpadGestureCustomization extends Extension {
 		const act: ActionType = this.settings!.get_enum(_propertyName);
 
 		if (act != ActionType.NONE) {
-			console.debug(`ATG: Creating action ${ActionType[act]} for ${_nfingers}-finger ${SwipeDirection[_direction]} gesture`);
-			const action = this._createAction(act, _nfingers, _direction);
-			this._extensions.push(action!);
+			console.debug(
+				`ATG: Creating action ${ActionType[act]} for ${_nfingers}-finger ${SwipeDirection[_direction]} gesture`
+			);
+			const action = this._createAction(act);
+			if (!action) return;
+			const gesture = new SwipeGesture([_nfingers], _direction, action);
+			this._extensions.push(gesture);
 		}
 	}
 
@@ -143,6 +129,18 @@ export default class TouchpadGestureCustomization extends Extension {
 		this._initializeSettings();
 		this._extensions = [];
 		if (this.settings === undefined) return;
+
+		if (
+			Main.overview._swipeTracker.enabled ||
+			Main.wm._workspaceAnimation._swipeTracker.enabled
+		) {
+			console.debug(
+				'ATG: Disabling built-in overview and workspace swiping gestures'
+			);
+			this._builtinDisabled = true;
+			Main.overview._swipeTracker.enabled = false;
+			Main.wm._workspaceAnimation._swipeTracker.enabled = false;
+		}
 
 		this._createGesture('swipe-3-finger-up', 3, SwipeDirection.UP);
 		this._createGesture('swipe-3-finger-down', 3, SwipeDirection.DOWN);
@@ -155,13 +153,6 @@ export default class TouchpadGestureCustomization extends Extension {
 		this._createGesture('swipe-4-finger-right', 4, SwipeDirection.RIGHT);
 
 		this._extensions.forEach(extension => extension.apply?.());
-
-		if (Main.overview._swipeTracker.enabled || Main.wm._workspaceAnimation._swipeTracker.enabled) {
-			console.debug('ATG: Disabling built-in overview and workspace swiping gestures');
-			this._builtinDisabled = true;
-			Main.overview._swipeTracker.enabled = false;
-			Main.wm._workspaceAnimation._swipeTracker.enabled = false;
-		}
 
 		/**
 		 * App Gestures
@@ -224,8 +215,11 @@ export default class TouchpadGestureCustomization extends Extension {
 		VKeyboard.extensionCleanup();
 		this._extensions.reverse().forEach(extension => extension.destroy());
 		this._extensions = [];
+
 		if (this._builtinDisabled) {
-			console.debug('ATG: Re-enabling built-in overview and workspace swiping gestures');
+			console.debug(
+				'ATG: Re-enabling built-in overview and workspace swiping gestures'
+			);
 			this._builtinDisabled = false;
 			Main.overview._swipeTracker.enabled = true;
 			Main.wm._workspaceAnimation._swipeTracker.enabled = true;

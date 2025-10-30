@@ -30,21 +30,58 @@ export enum WindowSnappingMode {
 	SNAP_RIGHT,
 }
 
-const SnapPreview = GObject.registerClass(
-	class SnapPreview extends St.Widget {
+export interface IGestureAction extends St.Widget {
+	/**
+	 * @brief check if this action is currently valid and available
+	 * @note all other functions are only called if this returned true before prepare was called
+	 */
+	isAvailable(): boolean;
+
+	/**
+	 * @brief prepare preview and variables (eg. current focused window or workspace)
+	 * @note is always called before preview or finish
+	 * @param progress range 0.0 - 1.0
+	 */
+	prepare(progress: number): void;
+
+	/**
+	 * @brief preview action
+	 * @note always preceded by prepare(1.0)
+	 * @param progress range -1.0 - 1.0
+	 */
+	preview(progress: number): void;
+
+	/**
+	 * @brief perform action with given final progress
+	 * @note always preceded by preview(...)
+	 * @param finalProgress (raw) progress at the end of gesture
+	 */
+	finish(finalProgress: number): void;
+
+	/**
+	 * @brief cancel preview and action
+	 * @note might be called after prepare instead of preview
+	 */
+	cancel(): void;
+}
+
+export const WindowManipulationAction = GObject.registerClass(
+	class WindowManipulationAction extends St.Widget implements IGestureAction {
 		private _adjustment: St.Adjustment;
 		private _window?: Meta.Window;
 		private _startBox?: Mtk.Rectangle;
 		private _endBox?: Mtk.Rectangle;
-		private _mode?: WindowSnappingMode;
+		private _mode: WindowSnappingMode;
 		private _virtualDevice: IVirtualKeyboard;
 
-		constructor() {
+		constructor(mode: WindowSnappingMode) {
 			super({
 				reactive: false,
 				style_class: 'tile-preview',
 				visible: false,
 			});
+
+			this._mode = mode;
 
 			this.add_style_class_name('gie-tile-window-preview');
 
@@ -62,64 +99,166 @@ const SnapPreview = GObject.registerClass(
 			this._virtualDevice = getVirtualKeyboard();
 		}
 
-		open(window: Meta.Window, mode: WindowSnappingMode): boolean {
-			if (this.visible) {
+		isAvailable(): boolean {
+			const window =
+				global.display.get_focus_window() as Meta.Window | null;
+
+			if (!window) {
 				return false;
 			}
 
-			this._mode = mode;
-			this._window = window;
-			this._startBox = window.get_frame_rect();
-
-			switch (mode) {
+			switch (this._mode) {
 				case WindowSnappingMode.MAXIMIZE:
-					this._endBox = this.getMaximizedBox(window);
+					if (!window.can_maximize()) return false;
 					break;
 				case WindowSnappingMode.MINIMIZE:
-					this._endBox = this.getMinimizedBox(window);
+					if (!window.can_minimize()) return false;
 					break;
 				case WindowSnappingMode.REDUCE:
-					this._endBox = this.getReducedBox(window);
+					if (
+						window.get_maximized() !== Meta.MaximizeFlags.BOTH &&
+						!window.can_minimize()
+					)
+						return false;
 					break;
 				case WindowSnappingMode.ENLARGE:
-					if (window.get_maximized() === Meta.MaximizeFlags.BOTH) {
-						this._endBox = this.getFullscreenBox(window);
+					if (!window.can_maximize()) return false;
+					break;
+				case WindowSnappingMode.FULLSCREEN:
+					if (!window.can_maximize()) return false;
+					break;
+				case WindowSnappingMode.SNAP_LEFT:
+					if (!window.can_maximize()) return false;
+					break;
+				case WindowSnappingMode.SNAP_RIGHT:
+					if (!window.can_maximize()) return false;
+					break;
+				default:
+					console.error('Unknown window snapping mode:', this._mode);
+					return false;
+			}
+
+			return true;
+		}
+
+		_determineEndBox(): void {
+			switch (this._mode) {
+				case WindowSnappingMode.MAXIMIZE:
+					this._endBox = this.getMaximizedBox();
+					break;
+				case WindowSnappingMode.MINIMIZE:
+					this._endBox = this.getMinimizedBox();
+					break;
+				case WindowSnappingMode.REDUCE:
+					this._endBox = this.getReducedBox();
+					break;
+				case WindowSnappingMode.ENLARGE:
+					if (
+						this._window?.get_maximized() ===
+						Meta.MaximizeFlags.BOTH
+					) {
+						this._endBox = this.getFullscreenBox();
 					} else {
-						this._endBox = this.getMaximizedBox(window);
+						this._endBox = this.getMaximizedBox();
 					}
 
 					break;
 				case WindowSnappingMode.FULLSCREEN:
-					this._endBox = this.getFullscreenBox(window);
+					this._endBox = this.getFullscreenBox();
 					break;
 				case WindowSnappingMode.SNAP_LEFT:
-					this._endBox = this.getMaximizedBox(window);
+					this._endBox = this.getMaximizedBox();
 					this._endBox.width /= 2;
 					break;
 				case WindowSnappingMode.SNAP_RIGHT:
-					this._endBox = this.getMaximizedBox(window);
+					this._endBox = this.getMaximizedBox();
 					this._endBox.width /= 2;
 					this._endBox.x += this._endBox.width;
 					break;
 				default:
-					console.error('Unknown window snapping mode:', mode);
-					return false;
+					console.error('Unknown window snapping mode:', this._mode);
+					return;
 			}
-
-			this.opacity = 0;
-			this._adjustment.value = 0;
-			this._valueChanged();
-			this.visible = true;
-			return true;
 		}
 
-		finish(duration: number, state: number): void {
+		prepare(progress: number): void {
+			this._window = global.display.get_focus_window() as
+				| Meta.Window
+				| undefined;
+
+			if (!this._window) {
+				// this check is just a safety, as this function should only be called if isAvailable() is true
+				return;
+			}
+
+			if (!this.visible) {
+				this._startBox = this._window.get_frame_rect();
+				this._determineEndBox();
+				this._adjustment.value = 0;
+				this.visible = true;
+			}
+
+			this.opacity = 255 * progress;
+		}
+
+		_valueChanged(): void {
+			const progress = this._adjustment.value;
+
+			if (progress < 0) {
+				this.opacity = 0;
+				return;
+			} else {
+				this.opacity = 255;
+			}
+
+			if (!this._startBox || !this._endBox) {
+				return;
+			}
+
+			const [x, y] = [
+				Utils.lerp(this._startBox!.x, this._endBox!.x, progress),
+				Utils.lerp(this._startBox!.y, this._endBox!.y, progress),
+			];
+
+			const [width, height] = [
+				Utils.lerp(this._startBox.width, this._endBox.width, progress),
+				Utils.lerp(
+					this._startBox.height,
+					this._endBox.height,
+					progress
+				),
+			];
+
+			this.set_position(x, y);
+			this.set_size(width, height);
+		}
+
+		preview(progress: number): void {
+			this._adjustment.value = progress;
+		}
+
+		_easeOpacity(value: number, callback?: () => void) {
+			easeActor(this as St.Widget, {
+				opacity: value,
+				duration: UPDATED_WINDOW_ANIMATION_TIME,
+				mode: Clutter.AnimationMode.EASE_OUT_QUAD,
+				onStopped: () => {
+					if (callback) callback();
+				},
+			});
+		}
+
+		finish(finalProgress: number): void {
+			const snappedProgress = finalProgress < 0.5 ? 0 : 1;
+
 			const callback = () => {
 				if (!this.visible) return;
 
-				this.easeOpacity(0, () => (this.visible = false));
+				this._easeOpacity(0, () => (this.visible = false));
 
-				if (!this._window || state <= 0) return;
+				if (snappedProgress == 0) return;
+
+				if (!this._window) return;
 
 				switch (this._mode) {
 					case WindowSnappingMode.MAXIMIZE:
@@ -194,67 +333,29 @@ const SnapPreview = GObject.registerClass(
 				this._window = undefined;
 			};
 
-			easeAdjustment(this._adjustment, state, {
-				duration: duration,
+			easeAdjustment(this._adjustment, snappedProgress, {
+				duration: WINDOW_ANIMATION_TIME,
 				mode: Clutter.AnimationMode.EASE_OUT_QUAD,
 				onStopped: callback,
 			});
 		}
 
-		_valueChanged(): void {
-			const progress = this._adjustment.value;
-
-			if (progress < 0) {
-				this.opacity = 0;
+		cancel(): void {
+			this._easeOpacity(0, () => {
 				this.visible = false;
-				return;
-			} else {
-				this.opacity = 255;
-				this.visible = true;
-			}
-
-			if (!this._startBox || !this._endBox) {
-				return;
-			}
-
-			const [x, y] = [
-				Utils.lerp(this._startBox!.x, this._endBox!.x, progress),
-				Utils.lerp(this._startBox!.y, this._endBox!.y, progress),
-			];
-
-			const [width, height] = [
-				Utils.lerp(this._startBox.width, this._endBox.width, progress),
-				Utils.lerp(
-					this._startBox.height,
-					this._endBox.height,
-					progress
-				),
-			];
-
-			this.set_position(x, y);
-			this.set_size(width, height);
-		}
-
-		easeOpacity(value: number, callback?: () => void) {
-			easeActor(this as St.Widget, {
-				opacity: value,
-				duration: UPDATED_WINDOW_ANIMATION_TIME,
-				mode: Clutter.AnimationMode.EASE_OUT_QUAD,
-				onStopped: () => {
-					if (callback) callback();
-				},
+				this._window = undefined;
+				this._startBox = undefined;
+				this._endBox = undefined;
 			});
 		}
 
-		get adjustment(): St.Adjustment {
-			return this._adjustment;
-		}
+		private getMinimizedBox() {
+			if (!this._window) return new Mtk.Rectangle();
 
-		private getMinimizedBox(window: Meta.Window) {
-			const [has_icon, icon_geometry] = window.get_icon_geometry();
+			const [has_icon, icon_geometry] = this._window.get_icon_geometry();
 			if (has_icon) return icon_geometry;
 
-			const rect = window.get_frame_rect();
+			const rect = this._window.get_frame_rect();
 			rect.x += rect.width / 2;
 			rect.width = 0;
 			rect.y += rect.height / 2;
@@ -262,23 +363,27 @@ const SnapPreview = GObject.registerClass(
 			return rect;
 		}
 
-		private getMaximizedBox(window: Meta.Window) {
-			const monitor = window.get_monitor();
+		private getMaximizedBox() {
+			if (!this._window) return new Mtk.Rectangle();
+
+			const monitor = this._window.get_monitor();
 			const maximizedBox =
 				Main.layoutManager.getWorkAreaForMonitor(monitor);
 			return maximizedBox;
 		}
 
-		private getReducedBox(window: Meta.Window) {
-			if (window.is_fullscreen()) {
-				return this.getMaximizedBox(window);
+		private getReducedBox() {
+			if (!this._window) return new Mtk.Rectangle();
+
+			if (this._window.is_fullscreen()) {
+				return this.getMaximizedBox();
 			}
 
-			if (window.get_maximized() !== Meta.MaximizeFlags.BOTH) {
-				return this.getMinimizedBox(window);
+			if (this._window.get_maximized() !== Meta.MaximizeFlags.BOTH) {
+				return this.getMinimizedBox();
 			}
 
-			const normalBox = window.get_frame_rect();
+			const normalBox = this._window.get_frame_rect();
 
 			const [width, height] = [
 				Math.round(normalBox.width * 0.05),
@@ -292,25 +397,25 @@ const SnapPreview = GObject.registerClass(
 			return normalBox;
 		}
 
-		private getFullscreenBox(window: Meta.Window) {
-			return global.display.get_monitor_geometry(window.get_monitor());
+		private getFullscreenBox() {
+			if (!this._window) return new Mtk.Rectangle();
+			return global.display.get_monitor_geometry(
+				this._window.get_monitor()
+			);
 		}
 	}
 );
 
-export class SnapWindowExtension implements ISubExtension {
+export class SwipeGesture implements ISubExtension {
 	private _swipeTracker: typeof SwipeTracker.prototype;
-	private _swipeDirection: SwipeDirection;
 	private _connectors: number[] = [];
-	private _tilePreview: typeof SnapPreview.prototype;
-	private _touchpadSwipeGesture: typeof TouchpadSwipeGesture.prototype;
+	private _action: IGestureAction;
 	private _uiGroupAddedActorId: number;
-	private _mode: WindowSnappingMode;
 
 	constructor(
 		nfingerss: number[],
 		swipeDirection: SwipeDirection,
-		mode: WindowSnappingMode
+		action: IGestureAction
 	) {
 		this._swipeTracker = createSwipeTracker(
 			global.stage,
@@ -323,26 +428,20 @@ export class SnapWindowExtension implements ISubExtension {
 		);
 
 		this._swipeTracker.allowLongSwipes = true;
-		this._swipeDirection = swipeDirection;
-		this._mode = mode;
-		this._touchpadSwipeGesture = this._swipeTracker
-			._touchpadGesture as typeof TouchpadSwipeGesture.prototype;
-		this._tilePreview = new SnapPreview();
-		Main.layoutManager.uiGroup.add_child(this._tilePreview);
+		this._action = action;
+
+		Main.layoutManager.uiGroup.add_child(this._action);
 		this._uiGroupAddedActorId = Main.layoutManager.uiGroup.connect(
 			'child-added',
 			() => {
 				Main.layoutManager.uiGroup.set_child_above_sibling(
-					this._tilePreview,
+					this._action,
 					null
 				);
 			}
 		);
 
-		Main.layoutManager.uiGroup.set_child_above_sibling(
-			this._tilePreview,
-			null
-		);
+		Main.layoutManager.uiGroup.set_child_above_sibling(this._action, null);
 	}
 
 	apply(): void {
@@ -366,15 +465,17 @@ export class SnapWindowExtension implements ISubExtension {
 		this._connectors.forEach(connector =>
 			this._swipeTracker.disconnect(connector)
 		);
-		Main.layoutManager.uiGroup.remove_child(this._tilePreview);
+		Main.layoutManager.uiGroup.remove_child(this._action);
 		this._swipeTracker.destroy();
-		this._tilePreview.destroy();
+		this._action.destroy();
 	}
 
 	_gestureBegin(
 		tracker: typeof SwipeTracker.prototype,
 		monitor: number
 	): void {
+		if (!this._action.isAvailable()) return;
+
 		const window = global.display.get_focus_window() as Meta.Window | null;
 
 		// window is on different monitor
@@ -385,47 +486,15 @@ export class SnapWindowExtension implements ISubExtension {
 		const currentMonitor = window.get_monitor();
 		const monitorArea = global.display.get_monitor_geometry(currentMonitor);
 
-		switch (this._mode) {
-			case WindowSnappingMode.MAXIMIZE:
-				if (!window.can_maximize()) return;
-				break;
-			case WindowSnappingMode.MINIMIZE:
-				if (!window.can_minimize()) return;
-				break;
-			case WindowSnappingMode.REDUCE:
-				if (
-					window.get_maximized() !== Meta.MaximizeFlags.BOTH &&
-					!window.can_minimize()
-				)
-					return;
-				break;
-			case WindowSnappingMode.ENLARGE:
-				if (!window.can_maximize()) return;
-				break;
-			case WindowSnappingMode.FULLSCREEN:
-				if (!window.can_maximize()) return;
-				break;
-			case WindowSnappingMode.SNAP_LEFT:
-				if (!window.can_maximize()) return;
-				break;
-			case WindowSnappingMode.SNAP_RIGHT:
-				if (!window.can_maximize()) return;
-				break;
-			default:
-				console.error('Unknown window snapping mode:', this._mode);
-				return;
-		}
-
-		if (this._tilePreview.open(window, this._mode)) {
-			tracker.confirmSwipe(monitorArea.height, [-1, 0, 1], 0, 0);
-		}
+		this._action.prepare(1.0);
+		tracker.confirmSwipe(monitorArea.height, [-1, 0, 1], 0, 0);
 	}
 
 	_gestureUpdate(_tracker: never, progress: number): void {
-		this._tilePreview.adjustment.value = progress;
+		this._action.preview(progress);
 	}
 
 	_gestureEnd(_tracker: never, duration: number, progress: number): void {
-		this._tilePreview.finish(duration, progress);
+		this._action.finish(progress);
 	}
 }
