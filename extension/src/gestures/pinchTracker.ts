@@ -191,7 +191,7 @@ export const TouchpadPinchGesture = GObject.registerClass(
 					break;
 			}
 
-			return Clutter.EVENT_STOP;
+			return Clutter.EVENT_PROPAGATE;
 		}
 
 		private _getBounds(): [number, number] {
@@ -201,9 +201,6 @@ export const TouchpadPinchGesture = GObject.registerClass(
 			];
 		}
 
-		/**
-		 * @param currentProgress must be in increasing order
-		 */
 		public confirmPinch(
 			_distance: number,
 			snapPoints: number[],

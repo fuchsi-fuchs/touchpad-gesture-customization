@@ -88,7 +88,7 @@ export class SwipeGesture implements ISubExtension {
 			Main.overview._swipeTracker.enabled ||
 			Main.wm._workspaceAnimation._swipeTracker.enabled
 		) {
-			console.debug(
+			console.log(
 				'ATG: Disabling built-in overview and workspace swiping gestures... again...'
 			);
 			Main.overview._swipeTracker.enabled = false;
@@ -179,24 +179,11 @@ export class PinchGesture implements ISubExtension {
 		this._action.destroy();
 	}
 
-	_gestureBegin(
-		tracker: typeof SwipeTracker.prototype,
-		monitor: number
-	): void {
+	_gestureBegin(_tracker: never, monitor: number): void {
 		if (!this._action.isAvailable()) return;
 
-		const window = global.display.get_focus_window() as Meta.Window | null;
-
-		// window is on different monitor
-		if (!window || window.get_monitor() !== monitor) {
-			return;
-		}
-
-		const currentMonitor = window.get_monitor();
-		const monitorArea = global.display.get_monitor_geometry(currentMonitor);
-
 		this._action.prepare(1.0);
-		tracker.confirmSwipe(monitorArea.height, [-1, 0, 1], 0, 0);
+		this._pinchTracker.confirmPinch(1, [-1, 0, 1], 0);
 	}
 
 	_gestureUpdate(_tracker: never, progress: number): void {
