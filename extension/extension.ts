@@ -179,6 +179,12 @@ export default class TouchpadGestureCustomization extends Extension {
 			SwipeDirection.RIGHT
 		);
 
+		this._createPinchGesture('pinch-3-finger-open', 3, PinchDirection.OPEN);
+		this._createPinchGesture('pinch-3-finger-close', 3, PinchDirection.CLOSE);
+
+		this._createPinchGesture('pinch-4-finger-open', 4, PinchDirection.OPEN);
+		this._createPinchGesture('pinch-4-finger-close', 4, PinchDirection.CLOSE);
+
 		this._extensions.forEach(extension => extension.apply?.());
 
 		/**

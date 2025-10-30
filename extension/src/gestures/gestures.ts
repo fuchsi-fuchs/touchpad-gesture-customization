@@ -84,6 +84,17 @@ export class SwipeGesture implements ISubExtension {
 		tracker: typeof SwipeTracker.prototype,
 		monitor: number
 	): void {
+		if (
+			Main.overview._swipeTracker.enabled ||
+			Main.wm._workspaceAnimation._swipeTracker.enabled
+		) {
+			console.debug(
+				'ATG: Disabling built-in overview and workspace swiping gestures... again...'
+			);
+			Main.overview._swipeTracker.enabled = false;
+			Main.wm._workspaceAnimation._swipeTracker.enabled = false;
+		}
+
 		if (!this._action.isAvailable()) return;
 
 		const window = global.display.get_focus_window() as Meta.Window | null;
