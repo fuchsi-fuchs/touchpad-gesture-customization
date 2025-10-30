@@ -9,6 +9,7 @@ import * as Constants from './constants.js';
 import * as VKeyboard from './src/utils/keyboard.js';
 import {SnapWindowExtension, WindowSnappingMode} from './src/windowSnapping.js';
 import {SwipeDirection} from './src/swipeTracker.js';
+import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
 export default class TouchpadGestureCustomization extends Extension {
 	private _extensions: ISubExtension[];
@@ -16,6 +17,7 @@ export default class TouchpadGestureCustomization extends Extension {
 	private _settingChangedId = 0;
 	private _reloadWaitId = 0;
 	private _addReloadDelayFor: AllSettingsKeys[];
+	private _builtinDisabled = false;
 
 	constructor(metadata: ExtensionMetadata) {
 		super(metadata);
@@ -131,12 +133,9 @@ export default class TouchpadGestureCustomization extends Extension {
 		const act: ActionType = this.settings!.get_enum(_propertyName);
 
 		if (act != ActionType.NONE) {
+			console.debug(`ATG: Creating action ${ActionType[act]} for ${_nfingers}-finger ${SwipeDirection[_direction]} gesture`);
 			const action = this._createAction(act, _nfingers, _direction);
-
-			if (action !== null) {
-				this._extensions.push(action!);
-				action!.apply();
-			}
+			this._extensions.push(action!);
 		}
 	}
 
@@ -154,6 +153,15 @@ export default class TouchpadGestureCustomization extends Extension {
 		this._createGesture('swipe-4-finger-down', 4, SwipeDirection.DOWN);
 		this._createGesture('swipe-4-finger-left', 4, SwipeDirection.LEFT);
 		this._createGesture('swipe-4-finger-right', 4, SwipeDirection.RIGHT);
+
+		this._extensions.forEach(extension => extension.apply?.());
+
+		if (Main.overview._swipeTracker.enabled || Main.wm._workspaceAnimation._swipeTracker.enabled) {
+			console.debug('ATG: Disabling built-in overview and workspace swiping gestures');
+			this._builtinDisabled = true;
+			Main.overview._swipeTracker.enabled = false;
+			Main.wm._workspaceAnimation._swipeTracker.enabled = false;
+		}
 
 		/**
 		 * App Gestures
@@ -212,8 +220,15 @@ export default class TouchpadGestureCustomization extends Extension {
 	}
 
 	_disable() {
+		console.debug('ATG: Disabling extension');
 		VKeyboard.extensionCleanup();
 		this._extensions.reverse().forEach(extension => extension.destroy());
 		this._extensions = [];
+		if (this._builtinDisabled) {
+			console.debug('ATG: Re-enabling built-in overview and workspace swiping gestures');
+			this._builtinDisabled = false;
+			Main.overview._swipeTracker.enabled = true;
+			Main.wm._workspaceAnimation._swipeTracker.enabled = true;
+		}
 	}
 }

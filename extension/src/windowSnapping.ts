@@ -319,7 +319,7 @@ export class SnapWindowExtension implements ISubExtension {
 			swipeDirection,
 			true,
 			1,
-			{allowTouch: false}
+			{allowTouch: true} // TODO: setting
 		);
 
 		this._swipeTracker.allowLongSwipes = true;
